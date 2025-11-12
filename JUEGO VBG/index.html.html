@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Juego Metro Bogotá — 4 niveles</title>
+<style>
+  :root{
+    --bg:#eaf2ff;
+    --card:#ffffff;
+    --muted:#475569;
+    --accent:#ff6b6b;
+    --green:#10b981;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#eaf2ff 0%, #f7fbff 60%);font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+    padding:18px;color:#071129;
+  }
+
+  .container{
+    width:980px;max-width:98vw;background:var(--card);border-radius:14px;overflow:hidden;
+    box-shadow:0 12px 30px rgba(10,20,40,0.08);display:grid;grid-template-columns:1fr 420px;
+  }
+
+  /* escena */
+  .scene{ position:relative; padding:22px; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#fff,#f1faff); }
+  .branding{ position:absolute; left:22px; top:18px; font-weight:800; color:var(--muted); display:flex; gap:8px; align-items:center; font-size:13px; }
+  .dot{ width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block; }
+
+  /* panel derecho */
+  .panel{ padding:20px; background:linear-gradient(180deg, rgba(250,251,255,0.6), transparent); display:flex; flex-direction:column; }
+  .levelTitle{ font-size:20px; font-weight:800; margin-bottom:6px; }
+  .levelCounter{ color:var(--muted); font-weight:700; font-size:13px; margin-bottom:12px; }
+
+  .textBox{
+    background:rgba(250,250,255,0.95); border-radius:12px; padding:14px; min-height:160px; font-size:15px; color:#071129; overflow:auto;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .typing-cursor{ display:inline-block; width:10px; height:18px; background:#071129; margin-left:6px; vertical-align:middle; animation:blink 1s steps(2) infinite; }
+  @keyframes blink{ 50%{ opacity:0 } }
+
+  .controls{ display:flex; gap:10px; margin-top:12px; align-items:center; }
+  button{ border:0; padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow:0 8px 20px rgba(10,20,40,0.06); }
+  .btn-alert{ background:#ff6b6b; color:#fff; }
+  .btn-info{ background:#3b82f6; color:#fff; }
+  .btn-next{ background:var(--green); color:#fff; margin-left:auto; }
+  .btn-next[disabled]{ opacity:0.45; cursor:not-allowed; filter:grayscale(0.2); }
+
+  .msgArea{ margin-top:12px; background:#fff; border-radius:10px; padding:10px; min-height:74px; border:1px solid rgba(12,18,30,0.04); color:var(--muted); }
+
+  .timerRow{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; color:var(--muted); font-weight:700; }
+
+  /* overlay de inicio */
+  .overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9)); padding:20px;
+  }
+  .startCard{ width:92%; max-width:520px; background:linear-gradient(180deg,#fff,#f6fbff); padding:20px; border-radius:12px; text-align:center; box-shadow:0 12px 30px rgba(10,20,40,0.06); }
+  .btn-start{ background:#0ea5a4; color:#fff; padding:12px 18px; border-radius:12px; font-weight:900; cursor:pointer; border:0; margin-top:10px; }
+
+  /* svg styling: keep things responsive */
+  .svgWrap{ width:86%; max-width:540px; border-radius:12px; overflow:hidden; box-shadow:0 8px 20px rgba(10,20,40,0.06); border:6px solid rgba(255,255,255,0.7); background:linear-gradient(180deg,#fff,#f2fbff); }
+  .floaty{ animation:floaty 3.8s ease-in-out infinite; transform-origin:center; }
+  @keyframes floaty{ 0%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } 100%{ transform:translateY(0) } }
+
+  /* responsive */
+  @media (max-width:920px){
+    .container{ grid-template-columns:1fr; }
+    .scene{ order:1 }
+    .panel{ order:2 }
+  }
+</style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="scene" aria-hidden="false">
+      <div class="branding"><span class="dot"></span><span>Metro de Bogotá — simulado</span></div>
+
+      <div class="svgWrap floaty" role="img" aria-label="Vagón de metro estilo cartoon">
+        <!-- SVG cartoon: contiene grupos para cada tipo de personaje/acción que se muestran/ocultan por nivel -->
+        <svg viewBox="0 0 900 450" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+
+          <defs>
+            <linearGradient id="bgG" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#e6f8ff"/>
+              <stop offset="1" stop-color="#f7fbff"/>
+            </linearGradient>
+            <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0b1220" flood-opacity="0.06"/>
+            </filter>
+          </defs>
+
+          <!-- fondo del vagón -->
+          <rect x="0" y="0" width="900" height="450" rx="8" fill="url(#bgG)"/>
+          <g transform="translate(30,40)">
+            <rect x="0" y="0" width="840" height="340" rx="12" fill="#fff" stroke="#e2efff"/>
+            <!-- cartel bíblico Metro de Bogotá -->
+            <rect x="520" y="12" width="280" height="36" rx="6" fill="#0b1220" opacity="0.06"/>
+            <text x="540" y="36" font-family="Arial" font-size="20" fill="#0b1220" opacity="0.9">Metro de Bogotá</text>
+
+            <!-- asientos y pasajeros estáticos -->
+            <g id="seats" transform="translate(20,48)" opacity="0.95">
+              <rect x="0" y="120" width="780" height="60" rx="8" fill="#f1f7ff"/>
+              <!-- pasajero sentado izquierda -->
+              <g transform="translate(40,60)">
+                <circle cx="40" cy="40" r="28" fill="#ffd9b3"/>
+                <rect x="8" y="82" width="64" height="24" rx="8" fill="#9ec5ff"/>
+              </g>
+              <!-- pasajero sentado derecho -->
+              <g transform="translate(640,60)">
+                <circle cx="40" cy="40" r="28" fill="#ffe6cc"/>
+                <rect x="8" y="82" width="64" height="24" rx="8" fill="#ffd1d1"/>
+              </g>
+            </g>
+
+            <!-- personaje principal (usuario) centro — siempre visible -->
+            <g id="player" transform="translate(300,40)" aria-hidden="false">
+              <circle cx="60" cy="40" r="34" fill="#ffe6cc"/>
+              <rect x="20" y="90" width="80" height="30" rx="10" fill="#ffb86b"/>
+              <rect x="58" y="100" width="16" height="24" rx="3" fill="#071129"/>
+            </g>
+
+            <!-- agresor mirada (nivel 1) -->
+            <g id="agresor" transform="translate(520,30)">
+              <g>
+                <circle cx="56" cy="36" r="30" fill="#ffd9b3"/>
+                <rect x="22" y="82" width="68" height="28" rx="8" fill="#ffd1d1"/>
+                <ellipse cx="46" cy="34" rx="6" ry="4" fill="#071129"/>
+                <ellipse cx="66" cy="34" rx="6" ry="4" fill="#071129" opacity="0.9"/>
+                <!-- mirada sugerida -->
+                <line x1="40" y1="40" x2="150" y2="80" stroke="#000" stroke-opacity="0.05" stroke-width="2"/>
+              </g>
+            </g>
+
+            <!-- ladrón (nivel 2) -->
+            <g id="ladron" transform="translate(540,140)" style="display:none;">
+              <g>
+                <circle cx="36" cy="30" r="26" fill="#ffd9b3"/>
+                <rect x="6" y="64" width="60" height="24" rx="6" fill="#d6d6d6"/>
+                <!-- gesto de mancha (robando) -->
+                <rect x="28" y="56" width="24" height="12" rx="3" fill="#071129" opacity="0.85"/>
+              </g>
+            </g>
+
+            <!-- piropo guy (nivel 3) -->
+            <g id="piropero" transform="translate(520,60)" style="display:none;">
+              <g>
+                <circle cx="56" cy="36" r="30" fill="#ffd9b3"/>
+                <rect x="22" y="82" width="68" height="28" rx="8" fill="#cfe7d8"/>
+                <!-- bocadillo piropo -->
+                <rect x="80" y="-10" width="120" height="36" rx="8" fill="#fff" stroke="#e6f0ff"/>
+                <text x="92" y="14" font-size="12" fill="#071129">"Uy, qué linda estás"</text>
+              </g>
+            </g>
+
+            <!-- musica guy (nivel 4) -->
+            <g id="musicGuy" transform="translate(600,160)" style="display:none;">
+              <g>
+                <circle cx="36" cy="30" r="26" fill="#ffd9b3"/>
+                <rect x="6" y="64" width="60" height="24" rx="6" fill="#c3d3ff"/>
+                <!-- altavoz icon -->
+                <rect x="58" y="56" width="20" height="18" rx="3" fill="#071129"/>
+                <path d="M78 56 C86 52, 96 52, 104 56" stroke="#071129" stroke-width="3" fill="none" stroke-linecap="round"/>
+              </g>
+            </g>
+
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel" role="region" aria-label="Controles del juego">
+      <div>
+        <div class="levelTitle" id="levelTitle">Inicio</div>
+        <div class="levelCounter" id="levelCounter">— / 4</div>
+      </div>
+
+      <div class="textBox" id="textBox" aria-live="polite">
+        <div id="hint">Pulsa <strong>Comenzar</strong> para iniciar. Tu personaje está en el vagón.</div>
+      </div>
+
+      <div class="controls" style="margin-top:14px">
+        <button id="btnAlert" class="btn-alert" disabled>Alertar un acto indebido</button>
+        <button id="btnInfo" class="btn-info" disabled>Conocer más</button>
+        <button id="btnNext" class="btn-next" disabled>Siguiente ▶</button>
+      </div>
+
+      <div class="msgArea" id="msgArea">(Aquí aparecerá el mensaje cuando pulses Alertar o Conocer más)</div>
+
+      <div class="timerRow">
+        <div id="statusText">Esperando...</div>
+        <div id="countdownDisplay">—</div>
+      </div>
+    </div>
+
+    <!-- Overlay inicio -->
+    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true">
+      <div class="startCard">
+        <h2 style="margin:0 0 6px 0">Bienvenido</h2>
+        <p style="margin:0 0 12px;color:var(--muted)"><strong>Completa estos 4 niveles y conéctate.</strong></p>
+        <button id="btnStart" class="btn-start">Comenzar ▶</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Niveles (textos exactos que nos diste)
+  const niveles = [
+    {
+      title: "Nivel 1 — Mirada y acercamiento indebido",
+      intro: "Estás en un vagón. Observas una situación: un hombre se acerca de forma morbosa a una mujer que va de pie porque los asientos están ocupados.",
+      mensaje: "No solo lo físico es violencia; una mirada o un acercamiento indebido puede ser el inicio de algo más grave y también constituye violencia."
+    },
+    {
+      title: "Nivel 2 — Robo de celular",
+      intro: "En el vagón alguien observa un hurto: un hombre le quita el celular a otro pasajero.",
+      mensaje: "El hurto rompe la confianza que sostiene la convivencia social y vulnera el derecho ajeno, debilitando el respeto mutuo que permite vivir en comunidad."
+    },
+    {
+      title: "Nivel 3 — Piropo invasivo",
+      intro: "Un hombre le dirige un piropo a una mujer: 'Uy, qué linda estás'.",
+      mensaje: "El piropo es indebido porque invade, incomoda y vulnera la privacidad del otro; no es un halago, es una falta de respeto."
+    },
+    {
+      title: "Nivel 4 — Música a alto volumen",
+      intro: "Alguien escucha música a volumen muy alto dentro del vagón, afectando la tranquilidad del resto.",
+      mensaje: "El volumen alto en espacios compartidos no es libertad, es falta de respeto; el ruido de uno no debe imponerse sobre la tranquilidad de todos."
+    }
+  ];
+
+  // DOM
+  const startOverlay = document.getElementById('startOverlay');
+  const btnStart = document.getElementById('btnStart');
+  const levelTitle = document.getElementById('levelTitle');
+  const levelCounter = document.getElementById('levelCounter');
+  const textBox = document.getElementById('textBox');
+  const btnAlert = document.getElementById('btnAlert');
+  const btnInfo = document.getElementById('btnInfo');
+  const btnNext = document.getElementById('btnNext');
+  const msgArea = document.getElementById('msgArea');
+  const statusText = document.getElementById('statusText');
+  const countdownDisplay = document.getElementById('countdownDisplay');
+
+  // SVG groups
+  const agresor = document.getElementById('agresor');
+  const ladron = document.getElementById('ladron');
+  const piropero = document.getElementById('piropero');
+  const musicGuy = document.getElementById('musicGuy');
+
+  let idx = -1; // antes de iniciar
+  let shortTimer = null;
+
+  // utility: limpiar visibilidad de actores
+  function hideAllActors(){
+    agresor.style.display = 'none';
+    ladron.style.display = 'none';
+    piropero.style.display = 'none';
+    musicGuy.style.display = 'none';
+  }
+
+  // typing effect for main text box
+  async function typeIntoBox(text, speed=26){
+    textBox.innerHTML = '';
+    for (let i=0;i<text.length;i++){
+      // escape minimal characters
+      const ch = text[i] === '<' ? '&lt;' : (text[i] === '>' ? '&gt;' : text[i]);
+      textBox.innerHTML += ch;
+      await new Promise(r=>setTimeout(r,speed));
+    }
+    // add blinking cursor
+    const cur = document.createElement('span');
+    cur.className = 'typing-cursor';
+    textBox.appendChild(cur);
+  }
+
+  // typing into message area (msgArea)
+  async function typeIntoMsg(text, speed=18){
+    msgArea.innerHTML = '';
+    for (let i=0;i<text.length;i++){
+      const ch = text[i] === '<' ? '&lt;' : (text[i] === '>' ? '&gt;' : text[i]);
+      msgArea.innerHTML += ch;
+      await new Promise(r=>setTimeout(r,speed));
+    }
+  }
+
+  // inicia nivel i
+  async function startLevel(i){
+    idx = i;
+    const nivel = niveles[i];
+    levelTitle.textContent = nivel.title;
+    levelCounter.textContent = `${i+1} / ${niveles.length}`;
+
+    // mostrar actor correspondiente
+    hideAllActors();
+    if (i === 0) agresor.style.display = 'block';
+    if (i === 1) ladron.style.display = 'block';
+    if (i === 2) piropero.style.display = 'block';
+    if (i === 3) musicGuy.style.display = 'block';
+
+    // reset UI
+    msgArea.textContent = '(Aquí aparecerá el mensaje cuando pulses Alertar o Conocer más)';
+    btnNext.disabled = true;
+    btnAlert.disabled = false;
+    btnInfo.disabled = false;
+    statusText.textContent = 'Esperando acción...';
+    countdownDisplay.textContent = '—';
+
+    // show intro with typing
+    await typeIntoBox(nivel.intro, 24);
+  }
+
+  // manejo de acción (Alertar o Conocer más) — ambos muestran mismo mensaje
+  async function handleAction(){
+    const nivel = niveles[idx];
+    // deshabilitar botones mientras se escribe y prevenir spam
+    btnAlert.disabled = true;
+    btnInfo.disabled = true;
+    statusText.textContent = 'Mostrando mensaje...';
+    await typeIntoMsg(nivel.mensaje, 14);
+    // iniciar espera 5s antes de activar Siguiente
+    startShortCountdown(5);
+  }
+
+  // Timer 5s
+  function startShortCountdown(seconds){
+    clearShortCountdown();
+    let s = seconds;
+    countdownDisplay.textContent = `${s}s`;
+    statusText.textContent = 'Esperando para avanzar...';
+    shortTimer = setInterval(()=>{
+      s--;
+      if (s <= 0){
+        clearShortCountdown();
+        countdownDisplay.textContent = 'Listo ✔';
+        statusText.textContent = 'Puedes avanzar';
+        btnNext.disabled = false;
+      } else {
+        countdownDisplay.textContent = `${s}s`;
+      }
+    }, 1000);
+  }
+  function clearShortCountdown(){
+    if (shortTimer){ clearInterval(shortTimer); shortTimer = null; }
+  }
+
+  // evento Siguiente
+  btnNext.addEventListener('click', ()=>{
+    if (idx < niveles.length - 1){
+      startLevel(idx + 1);
+    } else {
+      // final
+      levelTitle.textContent = 'Final';
+      levelCounter.textContent = `${niveles.length} / ${niveles.length}`;
+      textBox.innerHTML = 'Has completado los 4 niveles. Gracias por participar.';
+      msgArea.textContent = 'Tienes 40 minutos de internet';
+      btnNext.disabled = true;
+      btnAlert.disabled = true;
+      btnInfo.disabled = true;
+      statusText.textContent = 'Finalizado';
+      countdownDisplay.textContent = '—';
+      hideAllActors();
+    }
+  });
+
+  // eventos botones alert/info
+  btnAlert.addEventListener('click', handleAction);
+  btnInfo.addEventListener('click', handleAction);
+
+  // comenzar juego
+  btnStart.addEventListener('click', async ()=>{
+    // quitar overlay
+    startOverlay.style.transition = 'opacity 200ms ease';
+    startOverlay.style.opacity = '0';
+    setTimeout(()=> startOverlay.style.display = 'none', 220);
+    // activar botones
+    btnAlert.disabled = false;
+    btnInfo.disabled = false;
+    // iniciar nivel 0
+    await startLevel(0);
+  });
+
+  // previene que se queden timers activos si recargas
+  window.addEventListener('beforeunload', ()=> clearShortCountdown());
+
+  // seguridad: si por alguna razón ocurrió error, vuelve a habilitar botones al 2s para debug
+  setTimeout(()=>{
+    if (idx === -1){
+      // aún no iniciado, no tocar overlay; pero asegúrate de que los botones estén deshabilitados
+      btnAlert.disabled = true;
+      btnInfo.disabled = true;
+      btnNext.disabled = true;
+    }
+  }, 1500);
+
+  // accesibilidad: Enter para comenzar si overlay visible
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && startOverlay.style.display !== 'none'){
+      btnStart.click();
+    }
+  });
+
+</script>
+</body>
+</html>
